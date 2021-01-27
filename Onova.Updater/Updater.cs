@@ -15,7 +15,7 @@ namespace Onova.Updater
         private readonly string _routedArgs;
 
         private readonly TextWriter _log = File.CreateText(
-            Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Log.txt")
+            Path.Combine(AppDomain.CurrentDomain.BaseDirectory ?? string.Empty, "Log.txt")
         );
 
         public Updater(
@@ -48,44 +48,47 @@ namespace Onova.Updater
 
             // Copy over the package contents
             WriteLog("Copying package contents from storage to updatee's directory...");
-            DirectoryEx.Copy(_packageContentDirPath, updateeDirPath);
-
-            // Restart updatee if requested
-            if (_restartUpdatee)
+            if (updateeDirPath != null)
             {
-                var startInfo = new ProcessStartInfo
-                {
-                    WorkingDirectory = updateeDirPath,
-                    Arguments = _routedArgs,
-                    UseShellExecute = true // avoid sharing console window with updatee
-                };
+                DirectoryEx.Copy(_packageContentDirPath, updateeDirPath);
 
-                // If updatee is an .exe file - start it directly
-                if (string.Equals(Path.GetExtension(_updateeFilePath), ".exe", StringComparison.OrdinalIgnoreCase))
+                // Restart updatee if requested
+                if (_restartUpdatee)
                 {
-                    startInfo.FileName = _updateeFilePath;
-                }
-                // If not - figure out what to do with it
-                else
-                {
-                    // If there's an .exe file with same name - start it instead
-                    // Security vulnerability?
-                    if (File.Exists(Path.ChangeExtension(_updateeFilePath, ".exe")))
+                    var startInfo = new ProcessStartInfo
                     {
-                        startInfo.FileName = Path.ChangeExtension(_updateeFilePath, ".exe");
+                        WorkingDirectory = updateeDirPath,
+                        Arguments = _routedArgs,
+                        UseShellExecute = true // avoid sharing console window with updatee
+                    };
+
+                    // If updatee is an .exe file - start it directly
+                    if (string.Equals(Path.GetExtension(_updateeFilePath), ".exe", StringComparison.OrdinalIgnoreCase))
+                    {
+                        startInfo.FileName = _updateeFilePath;
                     }
-                    // Otherwise - start the updatee using dotnet SDK
+                    // If not - figure out what to do with it
                     else
                     {
-                        startInfo.FileName = "dotnet";
-                        startInfo.Arguments = $"{_updateeFilePath} {_routedArgs}";
+                        // If there's an .exe file with same name - start it instead
+                        // Security vulnerability?
+                        if (File.Exists(Path.ChangeExtension(_updateeFilePath, ".exe")))
+                        {
+                            startInfo.FileName = Path.ChangeExtension(_updateeFilePath, ".exe");
+                        }
+                        // Otherwise - start the updatee using dotnet SDK
+                        else
+                        {
+                            startInfo.FileName = "dotnet";
+                            startInfo.Arguments = $"{_updateeFilePath} {_routedArgs}";
+                        }
                     }
+
+                    WriteLog($"Restarting updatee [{startInfo.FileName} {startInfo.Arguments}]...");
+
+                    using var restartedUpdateeProcess = Process.Start(startInfo);
+                    WriteLog($"Restarted as pid:{restartedUpdateeProcess?.Id}.");
                 }
-
-                WriteLog($"Restarting updatee [{startInfo.FileName} {startInfo.Arguments}]...");
-
-                using var restartedUpdateeProcess = Process.Start(startInfo);
-                WriteLog($"Restarted as pid:{restartedUpdateeProcess?.Id}.");
             }
 
             // Delete package content directory

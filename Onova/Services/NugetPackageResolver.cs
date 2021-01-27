@@ -41,7 +41,7 @@ namespace Onova.Services
         {
         }
 
-        private async Task<string> GetPackageBaseAddressResourceUrlAsync(CancellationToken cancellationToken)
+        private async Task<string?> GetPackageBaseAddressResourceUrlAsync(CancellationToken cancellationToken)
         {
             // Get all available resources
             var responseJson = await _httpClient.GetJsonAsync(_serviceIndexUrl, cancellationToken);
@@ -104,7 +104,7 @@ namespace Onova.Services
             response.EnsureSuccessStatusCode();
 
             // Copy content to file
-            using var output = File.Create(destFilePath);
+            await using var output = File.Create(destFilePath);
             await response.Content.CopyToStreamAsync(output, progress, cancellationToken);
         }
     }

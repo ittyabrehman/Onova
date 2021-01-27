@@ -28,7 +28,7 @@ namespace Onova.Services
         private readonly string _assetNamePattern;
 
         private EntityTagHeaderValue? _cachedPackageVersionUrlMapETag;
-        private IReadOnlyDictionary<Version, string>? _cachedPackageVersionUrlMap;
+        private Dictionary<Version, string?>? _cachedPackageVersionUrlMap;
 
         /// <summary>
         /// Initializes an instance of <see cref="GithubPackageResolver"/>.
@@ -82,9 +82,9 @@ namespace Onova.Services
         {
         }
 
-        private IReadOnlyDictionary<Version, string> ParsePackageVersionUrlMap(JsonElement releasesJson)
+        private Dictionary<Version, string?> ParsePackageVersionUrlMap(JsonElement releasesJson)
         {
-            var map = new Dictionary<Version, string>();
+            var map = new Dictionary<Version, string?>();
 
             foreach (var releaseJson in releasesJson.EnumerateArray())
             {
@@ -115,7 +115,7 @@ namespace Onova.Services
                     var assetUrl = assetJson.GetProperty("url").GetString();
 
                     // See if name matches
-                    if (!WildcardPattern.IsMatch(assetName, _assetNamePattern))
+                    if (!WildcardPattern.IsMatch(assetName ?? string.Empty, _assetNamePattern))
                         continue;
 
                     // Add to dictionary
@@ -126,7 +126,7 @@ namespace Onova.Services
             return map;
         }
 
-        private async Task<IReadOnlyDictionary<Version, string>> GetPackageVersionUrlMapAsync(CancellationToken cancellationToken)
+        private async Task<Dictionary<Version, string?>> GetPackageVersionUrlMapAsync(CancellationToken cancellationToken)
         {
             // Get releases
             var url = $"{_apiBaseAddress}/repos/{_repositoryOwner}/{_repositoryName}/releases";
@@ -148,7 +148,7 @@ namespace Onova.Services
 
             // Parse response
             var responseJson = await response.Content.ReadAsJsonAsync(cancellationToken);
-            var map = ParsePackageVersionUrlMap(responseJson);
+            Dictionary<Version, string?> map = ParsePackageVersionUrlMap(responseJson);
 
             // Cache result
             _cachedPackageVersionUrlMapETag = response.Headers.ETag;
@@ -184,7 +184,7 @@ namespace Onova.Services
             using var response = await _httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
             response.EnsureSuccessStatusCode();
 
-            using var output = File.Create(destFilePath);
+            await using var output = File.Create(destFilePath);
             await response.Content.CopyToStreamAsync(output, progress, cancellationToken);
         }
     }
